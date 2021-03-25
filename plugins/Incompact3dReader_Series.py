@@ -132,7 +132,8 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
 
 #        print(file_precision)
 
-        from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid,vtkMultiBlockDataSet
+        import vtk
+        from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid,vtkMultiBlockDataSet, vtkCompositeDataSet
         self._ndata = vtkMultiBlockDataSet()
         self._ndata.SetNumberOfBlocks(self._nFiles);
 
@@ -172,6 +173,9 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
             point_data.AddArray(vtk_array)
 
             self._ndata.SetBlock(iblock,this_block);
+            block_name = str(ifile).zfill(self._nFillZeros)
+            self._ndata.GetMetaData(iblock).Set(vtk.vtkCompositeDataSet.NAME(),block_name)
+
             iblock = iblock + 1
 
         return self._get_raw_data()   
