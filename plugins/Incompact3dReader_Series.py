@@ -42,6 +42,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._nFiles = None
         self._nFillZeros = None
         self._domExtent = None
+        self._precision = 0
 
     def _get_raw_data(self):
         if self._ndata is not None:
@@ -123,6 +124,14 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         for k in range(nz):
             z[k] = k*dz
 
+
+        if (self._precision):
+          file_precision = np.dtype(np.float64) 
+        else:
+          file_precision = np.dtype(np.float32) 
+
+#        print(file_precision)
+
         from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid,vtkMultiBlockDataSet
         self._ndata = vtkMultiBlockDataSet()
         self._ndata.SetNumberOfBlocks(self._nFiles);
@@ -141,10 +150,10 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
 
             nsize = nx*ny*nz
 
-            ux = np.fromfile(pathToSimulation+"/data/ux"+str(ifile).zfill(self._nFillZeros),dtype=np.float32,count=nsize)
-            uy = np.fromfile(pathToSimulation+"/data/uy"+str(ifile).zfill(self._nFillZeros),dtype=np.float32,count=nsize)
-            uz = np.fromfile(pathToSimulation+"/data/uz"+str(ifile).zfill(self._nFillZeros),dtype=np.float32,count=nsize)
-            pressure = np.fromfile(pathToSimulation+"/data/pp"+str(ifile).zfill(self._nFillZeros),dtype=np.float32,count=nsize)
+            ux = np.fromfile(pathToSimulation+"/data/ux"+str(ifile).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+            uy = np.fromfile(pathToSimulation+"/data/uy"+str(ifile).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+            uz = np.fromfile(pathToSimulation+"/data/uz"+str(ifile).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+            pressure = np.fromfile(pathToSimulation+"/data/pp"+str(ifile).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
             point_data = this_block.GetPointData()
             vtk_array = numpy_support.numpy_to_vtk(ux)
             vtk_array.SetName('ux')
@@ -193,6 +202,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
 
         return
 
+# Get i3d file name 
     @smproperty.stringvector(name="FileName")
     @smdomain.filelist()
     @smhint.filechooser(extensions="i3d", file_description="Incompact3d config files")
@@ -203,6 +213,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
             self._ndata = None
             self.Modified()
 
+# Get leading zeros in data file names
     @smproperty.xml("""
         <IntVectorProperty name="Leading zeroes in file names"
             number_of_elements="1"
@@ -215,8 +226,9 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._nFillZeros = nFillZeros
         return
 
+# Get first data file ID
     @smproperty.xml("""
-        <IntVectorProperty name="File ID"
+        <IntVectorProperty name="First file ID"
             number_of_elements="1"
             default_values="1"
             command="get_first_fileID">
@@ -227,6 +239,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._firstFileID = firstFileID
         return
 
+# Get number of data files to read
     @smproperty.xml("""
         <IntVectorProperty name="Number of files"
             number_of_elements="1"
@@ -238,6 +251,20 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
     def get_number_of_files(self, nFiles):
         self._nFiles = nFiles
         return
+
+# Get the precision of data files
+    @smproperty.xml("""
+        <IntVectorProperty name="Data in double precision? "
+                           command="get_precision"
+                           number_of_elements="1"
+                           default_values="0">
+          <BooleanDomain name="bool"/>
+          <Documentation>If ticked, the data will be read in as double. Otherwise, single.</Documentation>
+        </IntVectorProperty>""")
+    def get_precision(self, precision):
+        self._precision = precision
+        return
+
 #    @smproperty.xml("""
 #        <StringVectorProperty name="Path to data"
 #                            command="SetPathToData"
@@ -270,7 +297,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         raw_data = self._get_raw_data()
         output = dsa.WrapDataObject(vtkMultiBlockDataSet.GetData(outInfoVec, 0))
         output.ShallowCopy(raw_data)
-        print(raw_data.GetNumberOfBlocks())
+#        print(raw_data.GetNumberOfBlocks())
         # Update the extent of the grid - not sure this is needed
         outInfo = outInfoVec.GetInformationObject(0)
         outInfo.Get(vtkStreamingDemandDrivenPipeline.UPDATE_EXTENT(), raw_data.GetBlock(0).GetExtent());
