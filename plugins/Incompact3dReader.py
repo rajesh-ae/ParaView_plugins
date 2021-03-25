@@ -8,11 +8,12 @@ Created on Wed Mar 24 19:22:23 2021
 
 from paraview.util.vtkAlgorithm import *
 from vtk.util import numpy_support
+from vtk import vtkStreamingDemandDrivenPipeline
 import numpy as np
 import os
 import re
 #------------------------------------------------------------------------------
-# A reader example.
+# Incompact3D Reader
 #------------------------------------------------------------------------------
 def createModifiedCallback(anobject):
     import weakref
@@ -39,6 +40,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._ndata = None
         self._firstFileID = None
         self._nFillZeros = None
+        self._domExtent = None
 
     def _get_raw_data(self):
         if self._ndata is not None:
@@ -89,6 +91,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
                 nclz = int(mynums[0])
 
 #        print (nx,ny,nz,xlx,yly,zlz,istret,nclx,ncly,nclz)
+        i3d_config.close()
 
         if (nclx==0):
             dx = xlx/nx
@@ -126,6 +129,8 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._ndata.SetXCoordinates(numpy_support.numpy_to_vtk(x))
         self._ndata.SetYCoordinates(numpy_support.numpy_to_vtk(y))
         self._ndata.SetZCoordinates(numpy_support.numpy_to_vtk(z))
+
+#        print(self._ndata.GetExtent())
 #        help(numpy_support.numpy_to_vtk)
 
         nsize = nx*ny*nz
@@ -152,6 +157,32 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         point_data.AddArray(vtk_array)
 
         return self._get_raw_data()   
+
+    def _get_grid_size(self):
+        if self._filename is None:
+            # Include more exceptions like this!
+            raise RuntimeError("No filename specified")
+
+        i3d_config = open(self._filename,'r')
+        nx = 0
+        ny = 0
+        nz = 0
+
+        i3d_config = open(self._filename,'r')        
+        for num, line in enumerate(i3d_config,1):
+            if ('nx' in line) and (nx == 0):
+                mynums = re.findall(r"\d+", line)
+                nx = int(mynums[0])
+            if ('ny' in line) and (ny == 0):
+                mynums = re.findall(r"\d+", line)
+                ny = int(mynums[0])
+            if ('nz' in line) and (nz == 0):
+                mynums = re.findall(r"\d+", line)
+                nz = int(mynums[0])
+        i3d_config.close()
+        self._domExtent = (0,nx-1,0,ny-1,0,nz-1)
+
+        return
 
     @smproperty.stringvector(name="FileName")
     @smdomain.filelist()
@@ -200,6 +231,12 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
 
     def RequestInformation(self, request, inInfoVec, outInfoVec):
         executive = self.GetExecutive()
+        outInfo = outInfoVec.GetInformationObject(0)
+        
+        # Set the extent of the grid - as this reader creates a structured grid
+        self._get_grid_size()
+        outInfo.Set(vtkStreamingDemandDrivenPipeline.WHOLE_EXTENT(), self._domExtent, 6)
+
         return 1
 
     def RequestData(self, request, inInfoVec, outInfoVec):
@@ -209,6 +246,10 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         raw_data = self._get_raw_data()
         output = dsa.WrapDataObject(vtkRectilinearGrid.GetData(outInfoVec, 0))
         output.ShallowCopy(raw_data)
+
+        # Update the extent of the grid - not sure this is needed
+        outInfo = outInfoVec.GetInformationObject(0)
+        outInfo.Get(vtkStreamingDemandDrivenPipeline.UPDATE_EXTENT(), raw_data.GetExtent());
 
         return 1
 
