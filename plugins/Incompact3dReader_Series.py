@@ -8,7 +8,6 @@ Created on Wed Mar 24 19:22:23 2021
 
 from paraview.util.vtkAlgorithm import *
 from vtk.util import numpy_support
-from vtk import vtkStreamingDemandDrivenPipeline
 import numpy as np
 import os
 import re
@@ -47,25 +46,17 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._timesteps = None
 
     def _get_raw_data(self, requested_time=None):
-#        if self._ndata is not None:
-#            return self._ndata
         if self._collection is not None:
             if requested_time is not None:
-#                self._ndata.UpdateTimeStep(requested_time)
-#                self._ndata.Update()
                 self._ndata = self._collection.GetItem(int(requested_time))
-                print('  requested time:', requested_time)
                 return self._ndata
-            print('  ndata:', 'exists')
             self._ndata = self._collection.GetItem(0)
             return self._ndata
         if self._filename is None:
-            # Include more exceptions like this!
             raise RuntimeError("No filename specified")
 
         pathToSimulation = os.path.dirname(os.path.abspath(self._filename))
 
-#        print(pathToSimulation)
         nx = 0
         ny = 0
         nz = 0
@@ -176,13 +167,10 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
 
             self._collection.AddItem(this_block)
 
-
         return self._get_raw_data()   
 
     def _get_grid_size(self):
-        print('_get_grid_size')
         if self._filename is None:
-            # Include more exceptions like this!
             raise RuntimeError("No filename specified")
 
         i3d_config = open(self._filename,'r')
@@ -206,15 +194,12 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         return
 
     def _get_timesteps(self):
-        print('_get_timesteps')
         self._timesteps = np.arange(self._nFiles,dtype=np.float32)
         return self._timesteps.tolist() if self._timesteps is not None else None
 
     def _get_update_time(self, outInfo):
-        print('_get_update_time')
         executive = self.GetExecutive()
-        timesteps = self._timesteps.tolist() if self._timesteps is not None else None
-        print ('Timesteps in update time: ',timesteps)
+        timesteps = self._get_timesteps()
         if timesteps is None or len(timesteps) == 0:
             return None
         elif outInfo.Has(executive.UPDATE_TIME_STEP()) and len(timesteps) > 0:
@@ -244,7 +229,6 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
 
     @smproperty.doublevector(name="TimestepValues", information_only="1", si_class="vtkSITimeStepsProperty")
     def GetTimestepValues(self):
-        print('GetTimestepValues')
         return self._get_timesteps()
 
 
@@ -304,7 +288,6 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         return
 
     def RequestInformation(self, request, inInfoVec, outInfoVec):
-        print ('RequestInformation:')
         executive = self.GetExecutive()
         outInfo = outInfoVec.GetInformationObject(0)
         
@@ -312,9 +295,9 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._get_grid_size()
         outInfo.Set(executive.WHOLE_EXTENT(), self._domExtent, 6)
 
+        # Set the time information of the data
         outInfo.Remove(executive.TIME_STEPS())
         outInfo.Remove(executive.TIME_RANGE())
-        print('Calling _get_timesteps in RequestInformation')
         timesteps = self._get_timesteps()
         if timesteps is not None:
             for t in timesteps:
@@ -325,20 +308,22 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         return 1
 
     def RequestData(self, request, inInfoVec, outInfoVec):
-        print ('RequestData:')
         from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid
         from vtkmodules.numpy_interface import dataset_adapter as dsa
+
+        # Get the timestamp of the data requested
         data_time = self._get_update_time(outInfoVec.GetInformationObject(0))
+
+        # Get the actual data corresponding to this timestamp - as vtkRectilinearGrid dataset
         raw_data = self._get_raw_data(data_time)
         executive = self.GetExecutive()
         outInfo = outInfoVec.GetInformationObject(0)
 
         output = dsa.WrapDataObject(vtkRectilinearGrid.GetData(outInfoVec, 0))
         output.ShallowCopy(raw_data)
-#        print(raw_data.GetNumberOfBlocks())
-        # Update the extent of the grid - not sure this is needed
 
-#        outInfo.Get(executive.UPDATE_EXTENT(), raw_data.GetExtent());
+        # Update the extent of the grid - not sure this is needed
+        outInfo.Get(executive.UPDATE_EXTENT(), raw_data.GetExtent());
 
         if data_time is not None:
             output.GetInformation().Set(output.DATA_TIME_STEP(), data_time)
