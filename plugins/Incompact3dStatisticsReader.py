@@ -25,9 +25,9 @@ def createModifiedCallback(anobject):
             o.Modified()
     return _markmodified
 
-@smproxy.reader(name="Incompact3dReader", label="Incompact3d Simulation Data Reader",
+@smproxy.reader(name="Incompact3dStatisticsReader", label="Incompact3d Simulation Statistics Data Reader",
                 extensions="i3d", file_description="Incompact3d files")
-class Incompact3dReader(VTKPythonAlgorithmBase):
+class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
     """ A reader that reads a Incompact3D simulation configuration file (.i3d) 
         along with solution data.
 
