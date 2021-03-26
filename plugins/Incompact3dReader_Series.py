@@ -35,7 +35,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         e-mail: vrajesh.ae[at]gmail.com
     """
     def __init__(self):
-        VTKPythonAlgorithmBase.__init__(self, nInputPorts=0, nOutputPorts=1, outputType='vtkMultiBlockDataSet')
+        VTKPythonAlgorithmBase.__init__(self, nInputPorts=0, nOutputPorts=1, outputType='vtkRectilinearGrid')
         self._filename = None
         self._ndata = None
         self._firstFileID = None
@@ -43,11 +43,22 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._nFillZeros = None
         self._domExtent = None
         self._precision = 0
+        self._collection = None
+        self._timesteps = None
 
-    def _get_raw_data(self):
-        if self._ndata is not None:
+    def _get_raw_data(self, requested_time=None):
+#        if self._ndata is not None:
+#            return self._ndata
+        if self._collection is not None:
+            if requested_time is not None:
+#                self._ndata.UpdateTimeStep(requested_time)
+#                self._ndata.Update()
+                self._ndata = self._collection.GetItem(int(requested_time))
+                print('  requested time:', requested_time)
+                return self._ndata
+            print('  ndata:', 'exists')
+            self._ndata = self._collection.GetItem(0)
             return self._ndata
-
         if self._filename is None:
             # Include more exceptions like this!
             raise RuntimeError("No filename specified")
@@ -92,7 +103,6 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
                 mynums = re.findall(r"\d+", line)
                 nclz = int(mynums[0])
 
-#        print (nx,ny,nz,xlx,yly,zlz,istret,nclx,ncly,nclz)
         i3d_config.close()
 
         if (nclx==0):
@@ -130,24 +140,16 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         else:
           file_precision = np.dtype(np.float32) 
 
-#        print(file_precision)
-
         import vtk
-        from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid,vtkMultiBlockDataSet, vtkCompositeDataSet
-        self._ndata = vtkMultiBlockDataSet()
-        self._ndata.SetNumberOfBlocks(self._nFiles);
+        from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid,vtkDataSetCollection, vtkCompositeDataSet
+        self._collection = vtkDataSetCollection()
 
-        iblock = 0
         for ifile in range(self._firstFileID,(self._firstFileID + self._nFiles)):
             this_block = vtkRectilinearGrid()
-    #        print(dir(this_block))
             this_block.SetDimensions(nx,ny,nz);
             this_block.SetXCoordinates(numpy_support.numpy_to_vtk(x))
             this_block.SetYCoordinates(numpy_support.numpy_to_vtk(y))
             this_block.SetZCoordinates(numpy_support.numpy_to_vtk(z))
-
-    #        print(this_block.GetExtent())
-    #        help(numpy_support.numpy_to_vtk)
 
             nsize = nx*ny*nz
 
@@ -172,15 +174,13 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
             vtk_array.SetName('p')
             point_data.AddArray(vtk_array)
 
-            self._ndata.SetBlock(iblock,this_block);
-            block_name = str(ifile).zfill(self._nFillZeros)
-            self._ndata.GetMetaData(iblock).Set(vtk.vtkCompositeDataSet.NAME(),block_name)
+            self._collection.AddItem(this_block)
 
-            iblock = iblock + 1
 
         return self._get_raw_data()   
 
     def _get_grid_size(self):
+        print('_get_grid_size')
         if self._filename is None:
             # Include more exceptions like this!
             raise RuntimeError("No filename specified")
@@ -203,8 +203,32 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
                 nz = int(mynums[0])
         i3d_config.close()
         self._domExtent = (0,nx-1,0,ny-1,0,nz-1)
-
         return
+
+    def _get_timesteps(self):
+        print('_get_timesteps')
+        self._timesteps = np.arange(self._nFiles,dtype=np.float32)
+        return self._timesteps.tolist() if self._timesteps is not None else None
+
+    def _get_update_time(self, outInfo):
+        print('_get_update_time')
+        executive = self.GetExecutive()
+        timesteps = self._timesteps.tolist() if self._timesteps is not None else None
+        print ('Timesteps in update time: ',timesteps)
+        if timesteps is None or len(timesteps) == 0:
+            return None
+        elif outInfo.Has(executive.UPDATE_TIME_STEP()) and len(timesteps) > 0:
+            utime = outInfo.Get(executive.UPDATE_TIME_STEP())
+            dtime = timesteps[0]
+            for atime in timesteps:
+                if atime > utime:
+                    return dtime
+                else:
+                    dtime = atime
+            return dtime
+        else:
+            assert(len(timesteps) > 0)
+            return timesteps[0]
 
 # Get i3d file name 
     @smproperty.stringvector(name="FileName")
@@ -214,8 +238,15 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         """Specify filename for the file to read."""
         if self._filename != name:
             self._filename = name
+            self._collection = None
             self._ndata = None
             self.Modified()
+
+    @smproperty.doublevector(name="TimestepValues", information_only="1", si_class="vtkSITimeStepsProperty")
+    def GetTimestepValues(self):
+        print('GetTimestepValues')
+        return self._get_timesteps()
+
 
 # Get leading zeros in data file names
     @smproperty.xml("""
@@ -253,8 +284,11 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
             <Documentation>Number of files to read</Documentation>
         </IntVectorProperty>""")
     def get_number_of_files(self, nFiles):
-        self._nFiles = nFiles
-        return
+        if self._nFiles != nFiles:
+            self._nFiles = nFiles
+            self._collection = None
+            self._ndata = None
+            self.Modified()
 
 # Get the precision of data files
     @smproperty.xml("""
@@ -269,42 +303,45 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._precision = precision
         return
 
-#    @smproperty.xml("""
-#        <StringVectorProperty name="Path to data"
-#                            command="SetPathToData"
-#                            number_of_elements="1"
-#                            default_values="./data/">
-#            <Documentation>Set the path to the data files</Documentation>
-#        </StringVectorProperty>""")
-#    def SetPathToData(self, pathToData):
-#        self._pathToData = pathToData
-#        return
-
-
-#        vtkDataObject::SetPointDataActiveScalarInfo(outInfo, this->DataScalarType,
-#            this->NumberOfScalarComponents);
-
     def RequestInformation(self, request, inInfoVec, outInfoVec):
+        print ('RequestInformation:')
         executive = self.GetExecutive()
         outInfo = outInfoVec.GetInformationObject(0)
         
         # Set the extent of the grid - as this reader creates a structured grid
         self._get_grid_size()
-        outInfo.Set(vtkStreamingDemandDrivenPipeline.WHOLE_EXTENT(), self._domExtent, 6)
+        outInfo.Set(executive.WHOLE_EXTENT(), self._domExtent, 6)
+
+        outInfo.Remove(executive.TIME_STEPS())
+        outInfo.Remove(executive.TIME_RANGE())
+        print('Calling _get_timesteps in RequestInformation')
+        timesteps = self._get_timesteps()
+        if timesteps is not None:
+            for t in timesteps:
+                outInfo.Append(executive.TIME_STEPS(), t)
+            outInfo.Append(executive.TIME_RANGE(), timesteps[0])
+            outInfo.Append(executive.TIME_RANGE(), timesteps[-1])
 
         return 1
 
     def RequestData(self, request, inInfoVec, outInfoVec):
-        from vtkmodules.vtkCommonDataModel import vtkMultiBlockDataSet
+        print ('RequestData:')
+        from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid
         from vtkmodules.numpy_interface import dataset_adapter as dsa
+        data_time = self._get_update_time(outInfoVec.GetInformationObject(0))
+        raw_data = self._get_raw_data(data_time)
+        executive = self.GetExecutive()
+        outInfo = outInfoVec.GetInformationObject(0)
 
-        raw_data = self._get_raw_data()
-        output = dsa.WrapDataObject(vtkMultiBlockDataSet.GetData(outInfoVec, 0))
+        output = dsa.WrapDataObject(vtkRectilinearGrid.GetData(outInfoVec, 0))
         output.ShallowCopy(raw_data)
 #        print(raw_data.GetNumberOfBlocks())
         # Update the extent of the grid - not sure this is needed
-        outInfo = outInfoVec.GetInformationObject(0)
-        outInfo.Get(vtkStreamingDemandDrivenPipeline.UPDATE_EXTENT(), raw_data.GetBlock(0).GetExtent());
+
+#        outInfo.Get(executive.UPDATE_EXTENT(), raw_data.GetExtent());
+
+        if data_time is not None:
+            output.GetInformation().Set(output.DATA_TIME_STEP(), data_time)
 
         return 1
 
