@@ -84,13 +84,13 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
             if 'istret' in line:
                 mynums = re.findall(r"\d+", line)
                 istret = int(mynums[0])
-            if 'nclx' in line:
+            if 'nclx1' in line:
                 mynums = re.findall(r"\d+", line)
                 nclx = int(mynums[0])
-            if 'ncly' in line:
+            if 'ncly1' in line:
                 mynums = re.findall(r"\d+", line)
                 ncly = int(mynums[0])
-            if 'nclz' in line:
+            if 'nclz1' in line:
                 mynums = re.findall(r"\d+", line)
                 nclz = int(mynums[0])
 
