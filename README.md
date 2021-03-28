@@ -1,4 +1,4 @@
-# ParaView_plugins
+# ParaView Plugins
 This repository contains some sample plugins for ParaView, written in Python. Plugins can be readers, writers or filters. The following plugins are currently available:
 1. [Incompact3d](https://www.incompact3d.com/) Reader
 2. Incompact3d Statistics Data Reader
