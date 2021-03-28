@@ -44,6 +44,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._precision = 0
         self._collection = None
         self._timesteps = None
+        self._scalarFlag = 1
 
     # Get the data - Called during RequestData phase
     def _get_raw_data(self, requested_time=None):
@@ -62,6 +63,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         nx = 0
         ny = 0
         nz = 0
+        nscalar = 0
 
         # Read the parameters from i3d configuration file
         i3d_config = open(self._filename,'r')        
@@ -87,6 +89,9 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
             if 'istret' in line:
                 mynums = re.findall(r"\d+", line)
                 istret = int(mynums[0])
+            if 'numscalar' in line:
+                mynums = re.findall(r"\d+", line)
+                nscalar = int(mynums[0])
             if 'nclx1' in line:
                 mynums = re.findall(r"\d+", line)
                 nclx = int(mynums[0])
@@ -140,6 +145,13 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
 
         # Create a list of all available instantaneous variables
         list_of_arrays = ['ux','uy','uz','pp']
+
+        # Add scalars to the list if needed
+        if (nscalar) and (self._scalarFlag):
+            for iscalar in range(nscalar):
+                this_scalar = 'phi'+str(iscalar+1)
+                list_of_arrays.append(this_scalar)
+            
 
         # The data will be stored as vtkDataSetCollection - with each instant being a vtkRectilinearGrid
         from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid,vtkDataSetCollection
@@ -296,6 +308,19 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         </IntVectorProperty>""")
     def GetPrecision(self, precision):
         self._precision = precision
+        return
+
+# Get the flag for reading scalar data
+    @smproperty.xml("""
+        <IntVectorProperty name="Read scalars if available? "
+                           command="GetScalars"
+                           number_of_elements="1"
+                           default_values="1">
+          <BooleanDomain name="bool"/>
+          <Documentation>When checked, scalars will be read if available</Documentation>
+        </IntVectorProperty>""")
+    def GetScalars(self, scalarFlag):
+        self._scalarFlag = scalarFlag
         return
 
     # Provides meta data information to other pipeline members
