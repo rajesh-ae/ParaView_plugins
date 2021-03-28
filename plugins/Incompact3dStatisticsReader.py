@@ -8,7 +8,6 @@ Created on Wed Mar 24 19:22:23 2021
 
 from paraview.util.vtkAlgorithm import *
 from vtk.util import numpy_support
-from vtk import vtkStreamingDemandDrivenPipeline
 import numpy as np
 import os
 import re
@@ -38,7 +37,7 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
         VTKPythonAlgorithmBase.__init__(self, nInputPorts=0, nOutputPorts=1, outputType='vtkRectilinearGrid')
         self._filename = None
         self._ndata = None
-        self._firstFileID = None
+        self._fileID = None
         self._nFillZeros = None
         self._domExtent = None
         self._precision = 0
@@ -144,25 +143,25 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
 
         nsize = nx*ny*nz
 
-        ux = np.fromfile(pathToSimulation+"/data/ux"+str(self._firstFileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        uy = np.fromfile(pathToSimulation+"/data/uy"+str(self._firstFileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        uz = np.fromfile(pathToSimulation+"/data/uz"+str(self._firstFileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        pressure = np.fromfile(pathToSimulation+"/data/pp"+str(self._firstFileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+        ux = np.fromfile(pathToSimulation+"/umean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+        uy = np.fromfile(pathToSimulation+"/vmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+        uz = np.fromfile(pathToSimulation+"/wmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+        pressure = np.fromfile(pathToSimulation+"/pmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
         point_data = self._ndata.GetPointData()
         vtk_array = numpy_support.numpy_to_vtk(ux)
-        vtk_array.SetName('ux')
+        vtk_array.SetName('umean')
         point_data.AddArray(vtk_array)
 
         vtk_array = numpy_support.numpy_to_vtk(uy)
-        vtk_array.SetName('uy')
+        vtk_array.SetName('vmean')
         point_data.AddArray(vtk_array)
 
         vtk_array = numpy_support.numpy_to_vtk(uz)
-        vtk_array.SetName('uz')
+        vtk_array.SetName('wmean')
         point_data.AddArray(vtk_array)
 
         vtk_array = numpy_support.numpy_to_vtk(pressure)
-        vtk_array.SetName('p')
+        vtk_array.SetName('pmean')
         point_data.AddArray(vtk_array)
 
         return self._get_raw_data()   
@@ -209,7 +208,7 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
             default_values="5"
             command="number_of_zeros">
             <IntRangeDomain name="range" />
-            <Documentation>If set to 5, the files are ux00001,uy00002, etc. </Documentation>
+            <Documentation>If set to 4, the files are umean.dat0100,vmean.dat0100, etc., for File ID 100 </Documentation>
         </IntVectorProperty>""")
     def number_of_zeros(self, nFillZeros):
         self._nFillZeros = nFillZeros
@@ -221,10 +220,10 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
             default_values="1"
             command="get_first_fileID">
             <IntRangeDomain name="range" />
-            <Documentation>First file index to read</Documentation>
+            <Documentation>If the files are umean.dat0100, vmean.dat0100, etc., enter 100</Documentation>
         </IntVectorProperty>""")
-    def get_first_fileID(self, firstFileID):
-        self._firstFileID = firstFileID
+    def get_first_fileID(self, fileID):
+        self._fileID = fileID
         return
 
     @smproperty.xml("""
@@ -256,7 +255,7 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
         
         # Set the extent of the grid - as this reader creates a structured grid
         self._get_grid_size()
-        outInfo.Set(vtkStreamingDemandDrivenPipeline.WHOLE_EXTENT(), self._domExtent, 6)
+        outInfo.Set(executive.WHOLE_EXTENT(), self._domExtent, 6)
 
         return 1
 
@@ -269,8 +268,9 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
         output.ShallowCopy(raw_data)
 
         # Update the extent of the grid - not sure this is needed
+        executive = self.GetExecutive()
         outInfo = outInfoVec.GetInformationObject(0)
-        outInfo.Get(vtkStreamingDemandDrivenPipeline.UPDATE_EXTENT(), raw_data.GetExtent());
+        outInfo.Get(executive.UPDATE_EXTENT(), raw_data.GetExtent());
 
         return 1
 
