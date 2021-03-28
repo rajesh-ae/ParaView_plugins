@@ -28,7 +28,7 @@ def createModifiedCallback(anobject):
                 extensions="i3d", file_description="Incompact3d files")
 class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
     """ A reader that reads a Incompact3D simulation configuration file (.i3d) 
-        along with solution data.
+        along with solution statistics data (umean.dat##,vmean.dat##, etc.).
 
         Author: Rajesh Venkatesan
         e-mail: vrajesh.ae[at]gmail.com
@@ -42,21 +42,21 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
         self._domExtent = None
         self._precision = 0
 
+    # Get the data - Called during RequestData phase
     def _get_raw_data(self):
         if self._ndata is not None:
             return self._ndata
 
         if self._filename is None:
-            # Include more exceptions like this!
             raise RuntimeError("No filename specified")
 
         pathToSimulation = os.path.dirname(os.path.abspath(self._filename))
 
-#        print(pathToSimulation)
         nx = 0
         ny = 0
         nz = 0
 
+        # Read the parameters from i3d configuration file
         i3d_config = open(self._filename,'r')        
         for num, line in enumerate(i3d_config,1):
             if ('nx' in line) and (nx == 0):
@@ -90,9 +90,9 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
                 mynums = re.findall(r"\d+", line)
                 nclz = int(mynums[0])
 
-#        print (nx,ny,nz,xlx,yly,zlz,istret,nclx,ncly,nclz)
         i3d_config.close()
 
+        # Construct the grid - to be improved 
         if (nclx==0):
             dx = xlx/nx
         elif ((nclx==1) or (nclx==2)):
@@ -122,30 +122,27 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
         for k in range(nz):
             z[k] = k*dz
 
+        nsize = nx*ny*nz
 
+        # Set the precision to read in data files
         if (self._precision):
           file_precision = np.dtype(np.float64)
         else:
           file_precision = np.dtype(np.float32)
 
-#        print(file_precision)
-
-
+        # Create a list of all available statistics
         list_of_arrays = ['umean','vmean','wmean','pmean','uumean','vvmean','wwmean','uvmean','uwmean','vwmean','kmean']
         
+        # The data will be stored as vtkRectilinearGrid
         from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid
         self._ndata = vtkRectilinearGrid()
-#        print(dir(self._ndata))
         self._ndata.SetDimensions(nx,ny,nz);
         self._ndata.SetXCoordinates(numpy_support.numpy_to_vtk(x))
         self._ndata.SetYCoordinates(numpy_support.numpy_to_vtk(y))
         self._ndata.SetZCoordinates(numpy_support.numpy_to_vtk(z))
         point_data = self._ndata.GetPointData()
-#        print(self._ndata.GetExtent())
-#        help(numpy_support.numpy_to_vtk)
 
-        nsize = nx*ny*nz
-
+        # Try to read all statistics arrays
         for this_array in list_of_arrays:
             try:
                 curr_array = np.fromfile(pathToSimulation+"/"+this_array+".dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
@@ -153,14 +150,17 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
                 vtk_array.SetName(this_array)
                 point_data.AddArray(vtk_array)          
             except FileNotFoundError:
+                # Skip the unavailable ones - move this to log message
                 print('Statistics file',this_array+".dat"+str(self._fileID).zfill(self._nFillZeros),'does not exist! Skipping this file ...')
 
         return self._get_raw_data()   
 
+    # Get the grid size/extent - called during RequestInformation phase
     def _get_grid_size(self):
         if self._filename is None:
             raise RuntimeError("No filename specified")
 
+        # Read the grid parameters from i3d configuration file
         i3d_config = open(self._filename,'r')
         nx = 0
         ny = 0
@@ -178,6 +178,8 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
                 mynums = re.findall(r"\d+", line)
                 nz = int(mynums[0])
         i3d_config.close()
+        
+        # Save the extent
         self._domExtent = (0,nx-1,0,ny-1,0,nz-1)
 
         return
@@ -239,6 +241,7 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
 #        self._pathToData = pathToData
 #        return
 
+    # Provides meta data information to other pipeline members
     def RequestInformation(self, request, inInfoVec, outInfoVec):
         executive = self.GetExecutive()
         outInfo = outInfoVec.GetInformationObject(0)
@@ -249,10 +252,12 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
 
         return 1
 
+    # Provides the actual data information to other pipeline members
     def RequestData(self, request, inInfoVec, outInfoVec):
         from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid
         from vtkmodules.numpy_interface import dataset_adapter as dsa
 
+        # Get the data
         raw_data = self._get_raw_data()
         output = dsa.WrapDataObject(vtkRectilinearGrid.GetData(outInfoVec, 0))
         output.ShallowCopy(raw_data)

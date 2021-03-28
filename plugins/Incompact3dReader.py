@@ -28,7 +28,7 @@ def createModifiedCallback(anobject):
                 extensions="i3d", file_description="Incompact3d files")
 class Incompact3dReader(VTKPythonAlgorithmBase):
     """ A reader that reads a Incompact3D simulation configuration file (.i3d) 
-        along with solution data.
+        along with instantaneous solution data (ux##, uy##, uz##, etc.).
 
         Author: Rajesh Venkatesan
         e-mail: vrajesh.ae[at]gmail.com
@@ -131,7 +131,8 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         else:
           file_precision = np.dtype(np.float32) 
 
-        list_of_arrays = ['umean','vmean','wmean','pmean','uumean','vvmean','wwmean','uvmean','uwmean','vwmean','kmean']
+        list_of_arrays = ['ux','uy','uz','pp']
+
         from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid,vtkDataSetCollection
         self._collection = vtkDataSetCollection()
 
@@ -143,27 +144,15 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
             this_block.SetZCoordinates(numpy_support.numpy_to_vtk(z))
 
             nsize = nx*ny*nz
-
-            ux = np.fromfile(pathToSimulation+"/data/ux"+str(ifile).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-            uy = np.fromfile(pathToSimulation+"/data/uy"+str(ifile).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-            uz = np.fromfile(pathToSimulation+"/data/uz"+str(ifile).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-            pressure = np.fromfile(pathToSimulation+"/data/pp"+str(ifile).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
             point_data = this_block.GetPointData()
-            vtk_array = numpy_support.numpy_to_vtk(ux)
-            vtk_array.SetName('ux')
-            point_data.AddArray(vtk_array)
-
-            vtk_array = numpy_support.numpy_to_vtk(uy)
-            vtk_array.SetName('uy')
-            point_data.AddArray(vtk_array)
-
-            vtk_array = numpy_support.numpy_to_vtk(uz)
-            vtk_array.SetName('uz')
-            point_data.AddArray(vtk_array)
-
-            vtk_array = numpy_support.numpy_to_vtk(pressure)
-            vtk_array.SetName('p')
-            point_data.AddArray(vtk_array)
+            for this_array in list_of_arrays:
+                try:
+                    curr_array = np.fromfile(pathToSimulation+"/data/"+this_array+str(ifile).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+                    vtk_array = numpy_support.numpy_to_vtk(curr_array)
+                    vtk_array.SetName(this_array)
+                    point_data.AddArray(vtk_array)          
+                except FileNotFoundError:
+                    print('File',this_array+str(ifile).zfill(self._nFillZeros),'does not exist! Skipping this file ...')
 
             self._collection.AddItem(this_block)
 
