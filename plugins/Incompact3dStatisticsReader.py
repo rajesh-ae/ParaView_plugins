@@ -12,7 +12,7 @@ import numpy as np
 import os
 import re
 #------------------------------------------------------------------------------
-# Incompact3D Reader
+# Incompact3D Statistics Data Reader
 #------------------------------------------------------------------------------
 def createModifiedCallback(anobject):
     import weakref
@@ -122,13 +122,14 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
         for k in range(nz):
             z[k] = k*dz
 
+        # Total grid size
         nsize = nx*ny*nz
 
         # Set the precision to read in data files
         if (self._precision):
-          file_precision = np.dtype(np.float64)
+            file_precision = np.dtype(np.float64)
         else:
-          file_precision = np.dtype(np.float32)
+            file_precision = np.dtype(np.float32)
 
         # Create a list of all available statistics
         list_of_arrays = ['umean','vmean','wmean','pmean','uumean','vvmean','wwmean','uvmean','uwmean','vwmean','kmean']
@@ -136,13 +137,15 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
         # The data will be stored as vtkRectilinearGrid
         from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid
         self._ndata = vtkRectilinearGrid()
+
+        # Set the grid parameters
         self._ndata.SetDimensions(nx,ny,nz);
         self._ndata.SetXCoordinates(numpy_support.numpy_to_vtk(x))
         self._ndata.SetYCoordinates(numpy_support.numpy_to_vtk(y))
         self._ndata.SetZCoordinates(numpy_support.numpy_to_vtk(z))
         point_data = self._ndata.GetPointData()
 
-        # Try to read all statistics arrays
+        # Try to read all statistics variables
         for this_array in list_of_arrays:
             try:
                 curr_array = np.fromfile(pathToSimulation+"/"+this_array+".dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
@@ -184,6 +187,7 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
 
         return
 
+# Get i3d file name 
     @smproperty.stringvector(name="Config.FileName")
     @smdomain.filelist()
     @smhint.filechooser(extensions="i3d", file_description="Incompact3d config files")
@@ -194,18 +198,20 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
             self._ndata = None
             self.Modified()
 
+# Get data file ID
     @smproperty.xml("""
-        <IntVectorProperty name="Data in double precision?"
-                           command="GetPrecision"
-                           number_of_elements="1"
-                           default_values="0">
-          <BooleanDomain name="bool"/>
-          <Documentation>If ticked, the data will be read in as double. Otherwise, single.</Documentation>
+        <IntVectorProperty name="File ID"
+            command="GetFileID"
+            number_of_elements="1"
+            default_values="1">
+            <IntRangeDomain name="range" />
+            <Documentation>If the files are umean.dat0100, vmean.dat0100, etc., enter 100</Documentation>
         </IntVectorProperty>""")
-    def GetPrecision(self, precision):
-        self._precision = precision
+    def GetFileID(self, fileID):
+        self._fileID = fileID
         return
 
+# Get leading zeros in data file names
     @smproperty.xml("""
         <IntVectorProperty name="Leading zeroes in file names"
             command="GetNumberOfZeros"
@@ -218,16 +224,17 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
         self._nFillZeros = nFillZeros
         return
 
+# Get the precision of data files
     @smproperty.xml("""
-        <IntVectorProperty name="File ID"
-            command="GetFirstFileID"
-            number_of_elements="1"
-            default_values="1">
-            <IntRangeDomain name="range" />
-            <Documentation>If the files are umean.dat0100, vmean.dat0100, etc., enter 100</Documentation>
+        <IntVectorProperty name="Data in double precision?"
+                           command="GetPrecision"
+                           number_of_elements="1"
+                           default_values="0">
+          <BooleanDomain name="bool"/>
+          <Documentation>If ticked, the data will be read in as double. Otherwise, single.</Documentation>
         </IntVectorProperty>""")
-    def GetFirstFileID(self, fileID):
-        self._fileID = fileID
+    def GetPrecision(self, precision):
+        self._precision = precision
         return
 
 #    @smproperty.xml("""

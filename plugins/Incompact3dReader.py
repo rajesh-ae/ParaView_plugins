@@ -12,7 +12,7 @@ import numpy as np
 import os
 import re
 #------------------------------------------------------------------------------
-# Incompact3D Reader
+# Incompact3D Instantaneous Data Reader
 #------------------------------------------------------------------------------
 def createModifiedCallback(anobject):
     import weakref
@@ -45,6 +45,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._collection = None
         self._timesteps = None
 
+    # Get the data - Called during RequestData phase
     def _get_raw_data(self, requested_time=None):
         if self._collection is not None:
             if requested_time is not None:
@@ -52,6 +53,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
                 return self._ndata
             self._ndata = self._collection.GetItem(0)
             return self._ndata
+
         if self._filename is None:
             raise RuntimeError("No filename specified")
 
@@ -61,6 +63,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         ny = 0
         nz = 0
 
+        # Read the parameters from i3d configuration file
         i3d_config = open(self._filename,'r')        
         for num, line in enumerate(i3d_config,1):
             if ('nx' in line) and (nx == 0):
@@ -96,6 +99,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
 
         i3d_config.close()
 
+        # Construct the grid - to be improved 
         if (nclx==0):
             dx = xlx/nx
         elif ((nclx==1) or (nclx==2)):
@@ -125,26 +129,34 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         for k in range(nz):
             z[k] = k*dz
 
+        # Total grid size
+        nsize = nx*ny*nz
 
+        # Set the precision to read in data files
         if (self._precision):
-          file_precision = np.dtype(np.float64) 
+            file_precision = np.dtype(np.float64)
         else:
-          file_precision = np.dtype(np.float32) 
+            file_precision = np.dtype(np.float32) 
 
+        # Create a list of all available instantaneous variables
         list_of_arrays = ['ux','uy','uz','pp']
 
+        # The data will be stored as vtkDataSetCollection - with each instant being a vtkRectilinearGrid
         from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid,vtkDataSetCollection
         self._collection = vtkDataSetCollection()
 
+        # Read arrays for time instants specified
         for ifile in range(self._firstFileID,(self._firstFileID + self._nFiles)):
             this_block = vtkRectilinearGrid()
+
+            # Set the grid parameters - see if these can be mapped instead of setting for each instant
             this_block.SetDimensions(nx,ny,nz);
             this_block.SetXCoordinates(numpy_support.numpy_to_vtk(x))
             this_block.SetYCoordinates(numpy_support.numpy_to_vtk(y))
             this_block.SetZCoordinates(numpy_support.numpy_to_vtk(z))
 
-            nsize = nx*ny*nz
             point_data = this_block.GetPointData()
+            # Try to read all instantaneous variables
             for this_array in list_of_arrays:
                 try:
                     curr_array = np.fromfile(pathToSimulation+"/data/"+this_array+str(ifile).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
@@ -152,16 +164,20 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
                     vtk_array.SetName(this_array)
                     point_data.AddArray(vtk_array)          
                 except FileNotFoundError:
+                    # Skip the unavailable ones - move this to log message
                     print('File',this_array+str(ifile).zfill(self._nFillZeros),'does not exist! Skipping this file ...')
 
+            # Add this instant to the collection
             self._collection.AddItem(this_block)
 
         return self._get_raw_data()   
 
+    # Get the grid size/extent - called during RequestInformation phase
     def _get_grid_size(self):
         if self._filename is None:
             raise RuntimeError("No filename specified")
 
+        # Read the grid parameters from i3d configuration file
         i3d_config = open(self._filename,'r')
         nx = 0
         ny = 0
@@ -179,13 +195,18 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
                 mynums = re.findall(r"\d+", line)
                 nz = int(mynums[0])
         i3d_config.close()
+        
+        # Save the extent
         self._domExtent = (0,nx-1,0,ny-1,0,nz-1)
+
         return
 
+# Get the list of timesteps - called during RequestInformation phase among others
     def _get_timesteps(self):
         self._timesteps = np.arange(self._nFiles,dtype=np.float32)
         return self._timesteps.tolist() if self._timesteps is not None else None
 
+# Update the list of timesteps - called during RequestData phase
     def _get_update_time(self, outInfo):
         executive = self.GetExecutive()
         timesteps = self._get_timesteps()
@@ -216,6 +237,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
             self._ndata = None
             self.Modified()
 
+# TimestepValues - only to enable time step feature
     @smproperty.doublevector(name="TimestepValues", information_only="1", si_class="vtkSITimeStepsProperty")
     def GetTimestepValues(self):
         return self._get_timesteps()
@@ -276,6 +298,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         self._precision = precision
         return
 
+    # Provides meta data information to other pipeline members
     def RequestInformation(self, request, inInfoVec, outInfoVec):
         executive = self.GetExecutive()
         outInfo = outInfoVec.GetInformationObject(0)
@@ -296,6 +319,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
 
         return 1
 
+    # Provides the actual data information to other pipeline members
     def RequestData(self, request, inInfoVec, outInfoVec):
         from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid
         from vtkmodules.numpy_interface import dataset_adapter as dsa
