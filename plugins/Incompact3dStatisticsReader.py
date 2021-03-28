@@ -124,12 +124,15 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
 
 
         if (self._precision):
-          file_precision = np.dtype(np.float64) 
+          file_precision = np.dtype(np.float64)
         else:
-          file_precision = np.dtype(np.float32) 
+          file_precision = np.dtype(np.float32)
 
 #        print(file_precision)
 
+
+        list_of_arrays = ['umean','vmean','wmean','pmean','uumean','vvmean','wwmean','uvmean','uwmean','vwmean','kmean']
+        
         from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid
         self._ndata = vtkRectilinearGrid()
 #        print(dir(self._ndata))
@@ -143,66 +146,19 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
 
         nsize = nx*ny*nz
 
-        ux = np.fromfile(pathToSimulation+"/umean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        vtk_array = numpy_support.numpy_to_vtk(ux)
-        vtk_array.SetName('umean')
-        point_data.AddArray(vtk_array)
-
-        uy = np.fromfile(pathToSimulation+"/vmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        vtk_array = numpy_support.numpy_to_vtk(uy)
-        vtk_array.SetName('vmean')
-        point_data.AddArray(vtk_array)
-
-        uz = np.fromfile(pathToSimulation+"/wmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        vtk_array = numpy_support.numpy_to_vtk(uz)
-        vtk_array.SetName('wmean')
-        point_data.AddArray(vtk_array)
-
-        pressure = np.fromfile(pathToSimulation+"/pmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        vtk_array = numpy_support.numpy_to_vtk(pressure)
-        vtk_array.SetName('pmean')
-        point_data.AddArray(vtk_array)
-
-        ux = np.fromfile(pathToSimulation+"/uumean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        vtk_array = numpy_support.numpy_to_vtk(ux)
-        vtk_array.SetName('uumean')
-        point_data.AddArray(vtk_array)
-
-        uy = np.fromfile(pathToSimulation+"/vvmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        vtk_array = numpy_support.numpy_to_vtk(uy)
-        vtk_array.SetName('vvmean')
-        point_data.AddArray(vtk_array)
-
-        uz = np.fromfile(pathToSimulation+"/wwmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        vtk_array = numpy_support.numpy_to_vtk(uz)
-        vtk_array.SetName('wwmean')
-        point_data.AddArray(vtk_array)
-
-        ux = np.fromfile(pathToSimulation+"/uvmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        vtk_array = numpy_support.numpy_to_vtk(ux)
-        vtk_array.SetName('uvmean')
-        point_data.AddArray(vtk_array)
-
-        uy = np.fromfile(pathToSimulation+"/uwmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        vtk_array = numpy_support.numpy_to_vtk(uy)
-        vtk_array.SetName('uwmean')
-        point_data.AddArray(vtk_array)
-
-        uz = np.fromfile(pathToSimulation+"/vwmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        vtk_array = numpy_support.numpy_to_vtk(uz)
-        vtk_array.SetName('vwmean')
-        point_data.AddArray(vtk_array)
-
-        uz = np.fromfile(pathToSimulation+"/kmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        vtk_array = numpy_support.numpy_to_vtk(uz)
-        vtk_array.SetName('kmean')
-        point_data.AddArray(vtk_array)
+        for this_array in list_of_arrays:
+            try:
+                curr_array = np.fromfile(pathToSimulation+"/"+this_array+".dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+                vtk_array = numpy_support.numpy_to_vtk(curr_array)
+                vtk_array.SetName(this_array)
+                point_data.AddArray(vtk_array)          
+            except FileNotFoundError:
+                print('Statistics file',this_array+".dat"+str(self._fileID).zfill(self._nFillZeros),'does not exist! Skipping this file ...')
 
         return self._get_raw_data()   
 
     def _get_grid_size(self):
         if self._filename is None:
-            # Include more exceptions like this!
             raise RuntimeError("No filename specified")
 
         i3d_config = open(self._filename,'r')
@@ -226,10 +182,10 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
 
         return
 
-    @smproperty.stringvector(name="FileName")
+    @smproperty.stringvector(name="Config.FileName")
     @smdomain.filelist()
     @smhint.filechooser(extensions="i3d", file_description="Incompact3d config files")
-    def SetFileName(self, name):
+    def GetConfigFileName(self, name):
         """Specify filename for the file to read."""
         if self._filename != name:
             self._filename = name
@@ -237,39 +193,39 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
             self.Modified()
 
     @smproperty.xml("""
-        <IntVectorProperty name="Leading zeroes in file names"
-            number_of_elements="1"
-            default_values="7"
-            command="number_of_zeros">
-            <IntRangeDomain name="range" />
-            <Documentation>If set to 4, the files are umean.dat0100,vmean.dat0100, etc., for File ID 100 </Documentation>
-        </IntVectorProperty>""")
-    def number_of_zeros(self, nFillZeros):
-        self._nFillZeros = nFillZeros
-        return
-
-    @smproperty.xml("""
-        <IntVectorProperty name="File ID"
-            number_of_elements="1"
-            default_values="1"
-            command="get_first_fileID">
-            <IntRangeDomain name="range" />
-            <Documentation>If the files are umean.dat0100, vmean.dat0100, etc., enter 100</Documentation>
-        </IntVectorProperty>""")
-    def get_first_fileID(self, fileID):
-        self._fileID = fileID
-        return
-
-    @smproperty.xml("""
-        <IntVectorProperty name="Data in double precision? "
-                           command="get_precision"
+        <IntVectorProperty name="Data in double precision?"
+                           command="GetPrecision"
                            number_of_elements="1"
                            default_values="0">
           <BooleanDomain name="bool"/>
           <Documentation>If ticked, the data will be read in as double. Otherwise, single.</Documentation>
         </IntVectorProperty>""")
-    def get_precision(self, precision):
+    def GetPrecision(self, precision):
         self._precision = precision
+        return
+
+    @smproperty.xml("""
+        <IntVectorProperty name="Leading zeroes in file names"
+            command="GetNumberOfZeros"
+            number_of_elements="1"
+            default_values="7">
+            <IntRangeDomain name="range" />
+            <Documentation>If set to 4, the files are umean.dat0100,vmean.dat0100, etc., for File ID 100 </Documentation>
+        </IntVectorProperty>""")
+    def GetNumberOfZeros(self, nFillZeros):
+        self._nFillZeros = nFillZeros
+        return
+
+    @smproperty.xml("""
+        <IntVectorProperty name="File ID"
+            command="GetFirstFileID"
+            number_of_elements="1"
+            default_values="1">
+            <IntRangeDomain name="range" />
+            <Documentation>If the files are umean.dat0100, vmean.dat0100, etc., enter 100</Documentation>
+        </IntVectorProperty>""")
+    def GetFirstFileID(self, fileID):
+        self._fileID = fileID
         return
 
 #    @smproperty.xml("""

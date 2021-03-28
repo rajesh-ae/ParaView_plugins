@@ -131,8 +131,8 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         else:
           file_precision = np.dtype(np.float32) 
 
-        import vtk
-        from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid,vtkDataSetCollection, vtkCompositeDataSet
+        list_of_arrays = ['umean','vmean','wmean','pmean','uumean','vvmean','wwmean','uvmean','uwmean','vwmean','kmean']
+        from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid,vtkDataSetCollection
         self._collection = vtkDataSetCollection()
 
         for ifile in range(self._firstFileID,(self._firstFileID + self._nFiles)):
@@ -216,10 +216,10 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
             return timesteps[0]
 
 # Get i3d file name 
-    @smproperty.stringvector(name="FileName")
+    @smproperty.stringvector(name="Config.FileName")
     @smdomain.filelist()
     @smhint.filechooser(extensions="i3d", file_description="Incompact3d config files")
-    def SetFileName(self, name):
+    def GetConfigFileName(self, name):
         """Specify filename for the file to read."""
         if self._filename != name:
             self._filename = name
@@ -231,30 +231,16 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
     def GetTimestepValues(self):
         return self._get_timesteps()
 
-
-# Get leading zeros in data file names
-    @smproperty.xml("""
-        <IntVectorProperty name="Leading zeroes in file names"
-            number_of_elements="1"
-            default_values="5"
-            command="number_of_zeros">
-            <IntRangeDomain name="range" />
-            <Documentation>If set to 5, the files are ux00001,uy00002, etc. </Documentation>
-        </IntVectorProperty>""")
-    def number_of_zeros(self, nFillZeros):
-        self._nFillZeros = nFillZeros
-        return
-
 # Get first data file ID
     @smproperty.xml("""
         <IntVectorProperty name="First file ID"
+            command="GetFirstFileID"
             number_of_elements="1"
-            default_values="1"
-            command="get_first_fileID">
+            default_values="1">
             <IntRangeDomain name="range" />
             <Documentation>First file index to read</Documentation>
         </IntVectorProperty>""")
-    def get_first_fileID(self, firstFileID):
+    def GetFirstFileID(self, firstFileID):
         self._firstFileID = firstFileID
         return
 
@@ -263,27 +249,41 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
         <IntVectorProperty name="Number of files"
             number_of_elements="1"
             default_values="1"
-            command="get_number_of_files">
+            command="GetNumberOfFiles">
             <IntRangeDomain name="range" />
             <Documentation>Number of files to read</Documentation>
         </IntVectorProperty>""")
-    def get_number_of_files(self, nFiles):
+    def GetNumberOfFiles(self, nFiles):
         if self._nFiles != nFiles:
             self._nFiles = nFiles
             self._collection = None
             self._ndata = None
             self.Modified()
 
+
+# Get leading zeros in data file names
+    @smproperty.xml("""
+        <IntVectorProperty name="Leading zeroes in file names"
+            command="GetNumberOfZeros"
+            number_of_elements="1"
+            default_values="5">
+            <IntRangeDomain name="range" />
+            <Documentation>If set to 5, the files are ux00001,uy00002, etc.</Documentation>
+        </IntVectorProperty>""")
+    def GetNumberOfZeros(self, nFillZeros):
+        self._nFillZeros = nFillZeros
+        return
+
 # Get the precision of data files
     @smproperty.xml("""
         <IntVectorProperty name="Data in double precision? "
-                           command="get_precision"
+                           command="GetPrecision"
                            number_of_elements="1"
                            default_values="0">
           <BooleanDomain name="bool"/>
           <Documentation>If ticked, the data will be read in as double. Otherwise, single.</Documentation>
         </IntVectorProperty>""")
-    def get_precision(self, precision):
+    def GetPrecision(self, precision):
         self._precision = precision
         return
 
