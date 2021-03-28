@@ -16,9 +16,9 @@ import numpy as np
 # new module for ParaView-specific decorators.
 from paraview.util.vtkAlgorithm import smproxy, smproperty, smdomain
 
-@smproxy.filter(label="Incompact3d")
+@smproxy.filter(label="Analyse Incompact3d")
 @smproperty.input(name="Input")
-@smdomain.datatype(dataTypes=["vtkDataSet"], composite_data_supported=False)
+@smdomain.datatype(dataTypes=["vtkRectilinearGrid"], composite_data_supported=False)
 class Incompact3dFilter(VTKPythonAlgorithmBase):
     """
     This filter provides post-processing support for Incompact3d simulation data
@@ -28,7 +28,7 @@ class Incompact3dFilter(VTKPythonAlgorithmBase):
     e-mail: vrajesh.ae[at]gmail.com
     """
     def __init__(self):
-        super().__init__(nInputPorts=1, nOutputPorts=1, outputType="vtkDataSet")
+        super().__init__(nInputPorts=1, nOutputPorts=1, outputType="vtkRectilinearGrid")
 
     def RequestDataObject(self, request, inInfo, outInfo):
         inData = self.GetInputData(inInfo, 0, 0)
