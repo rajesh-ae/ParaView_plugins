@@ -1,8 +1,9 @@
 # ParaView_plugins
 This repository contains some sample plugins for ParaView, written in Python. Plugins can be readers, writers or filters. The following plugins are currently available:
 1. [Incompact3d](https://www.incompact3d.com/) Reader
-2. Compressible Flow filter
+2. Incompact3d Statistics Data Reader
 3. Analyse Incompact3d filter
+4. Compressible Flow filter
 
 
 To add a python plugin to ParaView, follow the simple steps below after downloading the python file (e.g. Compressible_Flow.py):
