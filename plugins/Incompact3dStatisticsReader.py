@@ -137,31 +137,65 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
         self._ndata.SetXCoordinates(numpy_support.numpy_to_vtk(x))
         self._ndata.SetYCoordinates(numpy_support.numpy_to_vtk(y))
         self._ndata.SetZCoordinates(numpy_support.numpy_to_vtk(z))
-
+        point_data = self._ndata.GetPointData()
 #        print(self._ndata.GetExtent())
 #        help(numpy_support.numpy_to_vtk)
 
         nsize = nx*ny*nz
 
         ux = np.fromfile(pathToSimulation+"/umean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        uy = np.fromfile(pathToSimulation+"/vmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        uz = np.fromfile(pathToSimulation+"/wmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        pressure = np.fromfile(pathToSimulation+"/pmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
-        point_data = self._ndata.GetPointData()
         vtk_array = numpy_support.numpy_to_vtk(ux)
         vtk_array.SetName('umean')
         point_data.AddArray(vtk_array)
 
+        uy = np.fromfile(pathToSimulation+"/vmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
         vtk_array = numpy_support.numpy_to_vtk(uy)
         vtk_array.SetName('vmean')
         point_data.AddArray(vtk_array)
 
+        uz = np.fromfile(pathToSimulation+"/wmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
         vtk_array = numpy_support.numpy_to_vtk(uz)
         vtk_array.SetName('wmean')
         point_data.AddArray(vtk_array)
 
+        pressure = np.fromfile(pathToSimulation+"/pmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
         vtk_array = numpy_support.numpy_to_vtk(pressure)
         vtk_array.SetName('pmean')
+        point_data.AddArray(vtk_array)
+
+        ux = np.fromfile(pathToSimulation+"/uumean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+        vtk_array = numpy_support.numpy_to_vtk(ux)
+        vtk_array.SetName('uumean')
+        point_data.AddArray(vtk_array)
+
+        uy = np.fromfile(pathToSimulation+"/vvmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+        vtk_array = numpy_support.numpy_to_vtk(uy)
+        vtk_array.SetName('vvmean')
+        point_data.AddArray(vtk_array)
+
+        uz = np.fromfile(pathToSimulation+"/wwmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+        vtk_array = numpy_support.numpy_to_vtk(uz)
+        vtk_array.SetName('wwmean')
+        point_data.AddArray(vtk_array)
+
+        ux = np.fromfile(pathToSimulation+"/uvmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+        vtk_array = numpy_support.numpy_to_vtk(ux)
+        vtk_array.SetName('uvmean')
+        point_data.AddArray(vtk_array)
+
+        uy = np.fromfile(pathToSimulation+"/uwmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+        vtk_array = numpy_support.numpy_to_vtk(uy)
+        vtk_array.SetName('uwmean')
+        point_data.AddArray(vtk_array)
+
+        uz = np.fromfile(pathToSimulation+"/vwmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+        vtk_array = numpy_support.numpy_to_vtk(uz)
+        vtk_array.SetName('vwmean')
+        point_data.AddArray(vtk_array)
+
+        uz = np.fromfile(pathToSimulation+"/kmean.dat"+str(self._fileID).zfill(self._nFillZeros),dtype=file_precision,count=nsize)
+        vtk_array = numpy_support.numpy_to_vtk(uz)
+        vtk_array.SetName('kmean')
         point_data.AddArray(vtk_array)
 
         return self._get_raw_data()   
@@ -205,7 +239,7 @@ class Incompact3dStatisticsReader(VTKPythonAlgorithmBase):
     @smproperty.xml("""
         <IntVectorProperty name="Leading zeroes in file names"
             number_of_elements="1"
-            default_values="5"
+            default_values="7"
             command="number_of_zeros">
             <IntRangeDomain name="range" />
             <Documentation>If set to 4, the files are umean.dat0100,vmean.dat0100, etc., for File ID 100 </Documentation>
