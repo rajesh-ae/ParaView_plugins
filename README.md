@@ -6,7 +6,7 @@ This repository contains some sample plugins for ParaView, written in Python. Pl
 4. Compressible Flow filter
 
 
-To add a python plugin to ParaView, follow the simple steps below after downloading the python file (e.g. Compressible_Flow.py):
+To add a python plugin to ParaView, follow the simple steps below after downloading the python file (e.g. CompressibleFlow.py):
 1. Open Tools > Manage Plugins...
 2. Select Load New and open the downloaded python file 
 3. The plugin is loaded and you can enable Auto Load under the plugin name if you want it available for all your future sessions.
