@@ -129,7 +129,7 @@ class Incompact3dReader(VTKPythonAlgorithmBase):
             y = np.loadtxt(pathToSimulation+'/yp.dat')
         else:
             for j in range(ny):
-                y[j] = j*dx
+                y[j] = j*dy
 
         for k in range(nz):
             z[k] = k*dz
