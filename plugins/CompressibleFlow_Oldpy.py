@@ -66,7 +66,7 @@ class CompressibleFlowFilter(VTKPythonAlgorithmBase):
             Ts = input0.CellData[pr_name] /(R*input0.CellData[rho_name])  # temperature from ideal gas law
             a = np.sqrt(gamma*R*Ts)      # local sound speed
 #            vmag = np.linalg.norm(vel,axis=1)
-            vmag = np.apply_along_axis(linalg.norm, 1, vel)
+            vmag = np.apply_along_axis(np.linalg.norm, 1, vel)
             Mach = vmag/a
             T0 = Ts + (0.5/Cp)*(vmag*vmag)    # Total temperature
             P0 = input0.CellData[pr_name]*((T0/Ts)**ga1) # Total pressure
@@ -89,7 +89,7 @@ class CompressibleFlowFilter(VTKPythonAlgorithmBase):
             Ts = input0.PointData[pr_name] /(R*input0.PointData[rho_name])  # temperature from ideal gas law
             a = np.sqrt(gamma*R*Ts)      # local sound speed
 #            vmag = np.linalg.norm(vel,axis=1)
-            vmag = np.apply_along_axis(linalg.norm, 1, vel)
+            vmag = np.apply_along_axis(np.linalg.norm, 1, vel)
             Mach = vmag/a
             T0 = Ts + (0.5/Cp)*(vmag*vmag)    # Total temperature
             P0 = input0.PointData[pr_name]*((T0/Ts)**ga1) # Total pressure
