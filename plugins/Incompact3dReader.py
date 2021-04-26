@@ -14,16 +14,6 @@ import re
 #------------------------------------------------------------------------------
 # Incompact3D Instantaneous Data Reader
 #------------------------------------------------------------------------------
-def createModifiedCallback(anobject):
-    import weakref
-    weakref_obj = weakref.ref(anobject)
-    anobject = None
-    def _markmodified(*args, **kwars):
-        o = weakref_obj()
-        if o is not None:
-            o.Modified()
-    return _markmodified
-
 @smproxy.reader(name="Incompact3dReader", label="Incompact3d Simulation Data Reader",
                 extensions="i3d", file_description="Incompact3d files")
 class Incompact3dReader(VTKPythonAlgorithmBase):
